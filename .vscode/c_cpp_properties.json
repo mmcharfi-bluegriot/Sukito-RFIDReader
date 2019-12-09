@@ -4,7 +4,8 @@
             "name": "Win32",
             "includePath": [
                 "C:\\Users\\Mcharfi\\Documents\\Arduino\\hardware\\espessif\\esp32\\**",
-                "C:\\Users\\Mcharfi\\Documents\\Arduino\\libraries\\**"
+                "C:\\Users\\Mcharfi\\Documents\\Arduino\\libraries\\**",
+                "C:\\Users\\Mcharfi\\Documents\\Arduino\\tools\\**"
             ],
             "forcedInclude": [],
             "intelliSenseMode": "msvc-x64",
