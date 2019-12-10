@@ -142,36 +142,40 @@ boolean RFID_init(long baudRate)
 
 void GPIO_init()
 {
-  //Init GPIO
+  // Button
   pinMode(start_button.Pin, INPUT_PULLUP);
   attachInterrupt(start_button.Pin, isr, FALLING);
 
+  // Led declaration
   pinMode(led_red_status.Pin, OUTPUT);
-  digitalWrite(led_red_status.Pin, LOW);
-
   pinMode(led_red_wifi.Pin, OUTPUT);
-  digitalWrite(led_red_wifi.Pin, LOW);
-
   pinMode(led_green_status.Pin, OUTPUT);
-  digitalWrite(led_green_status.Pin, LOW);
-
   pinMode(led_green_wifi.Pin, OUTPUT);
+  
+  digitalWrite(led_red_status.Pin, HIGH);
+  digitalWrite(led_red_wifi.Pin, HIGH);
+  digitalWrite(led_green_wifi.Pin, HIGH);
+  digitalWrite(led_green_status.Pin, HIGH);
+  delay(1000);
+  digitalWrite(led_red_status.Pin, LOW);
+  digitalWrite(led_red_wifi.Pin, LOW);
   digitalWrite(led_green_wifi.Pin, LOW);
+  digitalWrite(led_green_status.Pin, LOW);
 }
 
-long previousMillis = 0; 
+
 
 void Led_blink(Led * led_user)
 {
+  static unsigned long previousMillis = 0; 
   unsigned long currentMillis = millis();
- 
   if(currentMillis - previousMillis > LED_BLINK_TIMING) {
     // save the last time you blinked the LED 
     previousMillis = currentMillis;   
     // if the LED is off turn it on and vice-versa:
     if (led_user->State == LOW)
     {
-       Serial.println("Blink HIGH");
+      Serial.println("Blink HIGH");
       led_user->State = HIGH;
     }
     else
@@ -199,23 +203,25 @@ void setup() {
   Serial.println("Mode AP set");
   digitalWrite(led_green_wifi.Pin, HIGH);
   
-  
-  if(get_SSID_password_try(240000UL) == 1) { // timeout = 0UL  veut dire pas de timeout
-    end_AP_com(); // Fermé le mode Access Point
-    parse_submit(); // Parser le nom et mot de passe du réseau renvoyé par l'utilisateur
-    WIFI_is_set = true ;
-  } 
-  else 
-  {
-    WIFI_is_set = false;
+  while (1){
+    if(captive_portale_home(240000UL) == 1)
+    {
+      Serial.println("test");
+      end_AP_com(); // Fermé le mode Access Point
+      parse_submit(); // Parser le nom et mot de passe du réseau renvoyé par l'utilisateur
+      WIFI_is_set = true ;
+      break;
+    }
   }
+  
   digitalWrite(led_green_wifi.Pin, LOW);
 
   // Mode STA
-  if (connect_to_ssid() == 0) { // connexion au réseau entré par l'utilisateur
+  if (connect_to_ssid(10) == STA_CONNECTED) { // connexion au réseau entré par l'utilisateur
     Serial.println("Connecté au réseaux");
     digitalWrite(led_green_wifi.Pin, HIGH);
   } else {
+    Serial.println("Non connecté");
     digitalWrite(led_red_wifi.Pin, HIGH);
   }
   
@@ -258,7 +264,7 @@ void loop() {
       Serial.print("Power analog = ");
       Serial.println(power_rfid);
 
-      power_rfid = map(power_rfid, 0, 3179, 0, 2700);
+      power_rfid = map(power_rfid, 0, 3120, 0, 2700);
 
       Serial.print("Power = ");
       Serial.println(power_rfid);
@@ -273,7 +279,7 @@ void loop() {
   {
     ttl_current_time = millis();
     if (nano.check() == true) //Check to see if any new data has come in from module
-    {
+    { 
 
       responseType = nano.parseResponse(); //Break response into tag ID, RSSI, frequency, and timestamp
       ttl_epc = analogRead(TTL_COMMAND_PIN);

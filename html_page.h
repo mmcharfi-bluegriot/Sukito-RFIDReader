@@ -9,7 +9,7 @@ const char html_login_page_header[] = {"\
 						<head>\
 							<meta http-equiv='content-type' content='text/html; charset=utf-8'/>\
 						 	<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\
-							<title>Configuration Meuble SOFINOR</title>\
+							<title>Sukito configuration</title>\
 						</head>\
 						<body>\
 							<div style=\"text-align: center;\">"};
@@ -18,7 +18,7 @@ const char html_login_page_form[] = {"\
 							</div>\
 							<form action='/login' method='POST' style=\"text-align:center;\">Entrez le SSID et le mot de passe<br><br>\
 								SSID:<input type='text' name='SSID' placeholder='Nom du réseau Wifi'><br>\
-								Mot de passe:<input type='password' name='PASSWORD' placeholder='Mot de passe'><br><br>\
+								Mot de passe:<input type='text' name='PASSWORD' placeholder='Mot de passe'><br><br>\
 								<input type='submit' name='SUBMIT' value='Valider'>\
 							</form><br>"};
 
