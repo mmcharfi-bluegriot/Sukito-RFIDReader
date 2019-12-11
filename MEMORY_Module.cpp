@@ -25,3 +25,6 @@ int memory_read_string (String * data, int addr)
     *data=EEPROM.readString(addr);
     return 0;
 }
+void memory_send_save(){
+    EEPROM.commit();
+}

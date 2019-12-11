@@ -17,9 +17,20 @@ const char html_login_page_header[] = {"\
 const char html_login_page_form[] = {"\
 							</div>\
 							<form action='/login' method='POST' style=\"text-align:center;\">Entrez le SSID et le mot de passe<br><br>\
+								ID:<input type='text' name='ID' placeholder='ID du module'><br>\
 								SSID:<input type='text' name='SSID' placeholder='Nom du réseau Wifi'><br>\
 								Mot de passe:<input type='text' name='PASSWORD' placeholder='Mot de passe'><br><br>\
-								<input type='submit' name='SUBMIT' value='Valider'>\
+								<input type='submit' name='SUBMIT' value='Continue'>\
+								<input type='submit' name='SUBMIT' value='Save Configuration'>\
+							</form><br>"};
+
+const char html_login_page_form2[] = {"\
+							</div>\
+							<form action='/login' method='POST' style=\"text-align:center;\">Entrez le SSID et le mot de passe<br><br>\
+								ID:<input type='text' name='ID' placeholder='ID du module'><br>\
+								SSID:<input type='text' name='SSID' placeholder='Nom du réseau Wifi'><br>\
+								Mot de passe:<input type='text' name='PASSWORD' placeholder='Mot de passe'><br><br>\
+								<input type='submit' name='SUBMIT' value='Save Configuration'>\
 							</form><br>"};
 
 const char html_login_page_reply[] = {"<h2></h2><br>"};
@@ -151,6 +162,7 @@ const char html_login_page_blgrt2[] = {"\
 
 
 void sendHTMLLoginPage(WiFiClient * c);
+void sendHTMLLoginPage2(WiFiClient * c);
 void sendHTMLReplyPage(WiFiClient * c);
 
 #endif //_HTML_PAGE_H_

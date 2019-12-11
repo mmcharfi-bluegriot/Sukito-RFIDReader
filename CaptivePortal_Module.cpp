@@ -19,6 +19,8 @@ static String password_user = DEFAULT_MDP;
 static String ssid_user = DEFAULT_SSID;
 static int ssid_size;
 
+String module_id = DEFAULT_READER_ID;
+
 String get_ssid_user()
 {
     return ssid_user;
@@ -27,6 +29,22 @@ String get_ssid_user()
 String get_pwd_user()
 {
     return password_user;
+}
+
+String get_id()
+{
+    return module_id;
+}
+
+
+void set_ssid_user(String data)
+{
+    ssid_user = data;
+}
+
+void set_pwd_user(String data)
+{
+    password_user = data;
 }
 
 connection_status_t init_AP_com()
@@ -66,107 +84,142 @@ void parse_submit()
 {
     indexStart = currentLine.lastIndexOf('&'); // le dernier & represente la fin de la partie qui nous interesse
     currentLine = currentLine.substring(0, indexStart + 1);
-    Serial.print("currentLine cut with last & : ");
+    Serial.print("fist cute: ");
     Serial.println(currentLine);
     // récupérer le premier champs : //
-    indexStart = currentLine.indexOf('=');
-    indexEnd = currentLine.indexOf('&');
-    ssid_user = currentLine.substring(indexStart + 1, indexEnd);
-    // récupérer le second champs : //
     indexStart = currentLine.lastIndexOf('=');
     indexEnd = currentLine.lastIndexOf('&');
     password_user = currentLine.substring(indexStart + 1, indexEnd);
+
+    currentLine = currentLine.substring(0, indexStart);
+    Serial.print("seconde cute ");
+    Serial.println(currentLine);
+    // récupérer le 2 champs : //
+    indexStart = currentLine.lastIndexOf('=');
+    indexEnd = currentLine.lastIndexOf('&');
+    ssid_user = currentLine.substring(indexStart + 1, indexEnd);
+
+    currentLine = currentLine.substring(0, indexStart);
+    Serial.print("third cute");
+    Serial.println(currentLine);
+    // récupérer le 3 champs : //
+    indexStart = currentLine.lastIndexOf('=');
+    indexEnd = currentLine.lastIndexOf('&');
+    module_id = currentLine.substring(indexStart + 1, indexEnd);
+
     ssid_size = strlen(ssid_user.c_str());
 
+    Serial.print("ssid user");
     Serial.println(ssid_user);
+    Serial.print("pwd user:");
     Serial.println(password_user);
+    Serial.print("id: ");
+    Serial.println(module_id);
     currentLine = "";
 }
 
-int REQUEST = 0; // 1 = GET, 2 = POST
-
 int handle_request(WiFiClient client)
 {
-    c = client.read();
+    int REQUEST = 0; // 1 = GET, 2 = POST
+    //currentLine = ""; // make a String to hold incoming data from the client
 
-    if (((c >= ASCII_SPACE) && (c < ASCII_MAX_VALUE) && (c != ASCII_DEL)) || ((c == ASCII_NL) || (c == ASCII_CR)))
+    while (1)
     {
-        Serial.print(c);
+        currentLine = "";
+        c = 0;
+        while (c != '\n')
+        {
+            c = client.read();
+            if (((c >= ASCII_SPACE) && (c < ASCII_MAX_VALUE) && (c != ASCII_DEL)) || ((c == ASCII_NL) || (c == ASCII_CR)))
+            {
+                Serial.print(c);
+
+                if (c != '\r')
+                {
+                    currentLine += c;
+                }
+            }
+            else
+            { //caractére non interprétable
+                Serial.print("\nData not usefull : ");
+                Serial.println((int)c);
+                break;
+            }
+        }
+
+        if (currentLine.startsWith("GET"))
+        {
+            Serial.println("GET REQUEST");
+            REQUEST = 1;
+        }
+        else if (currentLine.startsWith("POST"))
+        {
+            Serial.println("POST REQUEST");
+            REQUEST = 2;
+        } //END of request GET
+        else if (currentLine.length() == 0 && REQUEST == 1)
+        {
+
+            Serial.println("Lign null");
+            return 1;
+            break;
+        } //END of request POST
+        if (currentLine.endsWith("SUBMIT=Save+Configuration") && REQUEST == 2)
+        {
+            Serial.println("\nSUBMIT: New configuration");
+            return 2;
+        }
+        if (currentLine.endsWith("SUBMIT=Continue") && REQUEST == 2)
+        {
+            Serial.println("\nSUBMIT: Continue");
+            return 3;
+        }
     }
-    else
-    {
-        Serial.print("\nOUT : ");
-        Serial.println((int)c);
-        return 0;
-    }
-    if (c == '\n')
-    {
-        return 1;
-    }
-    else if (c != '\r' && c >= ASCII_SPACE && c < ASCII_MAX_VALUE && c != ASCII_DEL)
-    {
-        return 2;
-    }
-    return -1;
+    Serial.print("REQUEST: ");
+    Serial.println(REQUEST);
+    return REQUEST;
 }
 
-int captive_portale_home(unsigned long timeout_ms)
+int captive_portale_home(unsigned long timeout_ms, bool configured)
 {
     dnsServer.processNextRequest();
     WiFiClient client = server.available(); // listen for incoming clients
 
     unsigned long start_time = millis();
-
+    //Serial.println("captive_portale_home");
     if (client)
     {                                 // if you get a client,
         Serial.println("New Client"); // print a message out the serial port
-        currentLine = "";             // make a String to hold incoming data from the client
         while (client.connected())
         {                           // loop while the client's connected
             if (client.available()) //bytes to read from the client
             {
                 switch (handle_request(client))
                 {
-                case 0: //caractére non interprétable
+                case 0: //ligne
                     client.stop();
-                    currentLine = ""; //Erase ?
                     return 0;
-                case 1: //new line caractere
-                    // Si on voit un \n et qu'en plus la ligne qui était en lecture est nul, c'est qu'on est à la fin de la requête GET
-                    if (currentLine.length() == 0 && REQUEST == 0)
-                    { // Fin de requete (seul cas ou on a une nouvelle ligne et rien d'écrit dans celle d'avant)
-                        currentLine = ""; //Erase ?
+                case 1:
+                    if (configured)
+                    {
                         sendHTMLLoginPage(&client);
-                        //REQUEST = 0;
-                        client.stop();
-                        Serial.println("\nGET REQUEST : Client Disconnected.");
-                        return 0;
                     }
                     else
-                    { // if you got a newline, then clear currentLine:
-                        currentLine = "";
+                    {
+                        sendHTMLLoginPage2(&client);
                     }
+                    client.stop();
                     break;
                 case 2:
-                    // if you got anything else but a carriage return character,
-                    currentLine += c; // add it to the end of the currentLine
+                    client.stop();
+                    parse_submit();
+                    return 1;
                     break;
+                case 3:
+                    client.stop();
+                    return 2;
                 default:
                     break;
-                }
-                
-                if (currentLine.endsWith("SUBMIT=Valider"))
-                { // la ligne avec la requete POST est la dernière ligne
-                    sendHTMLReplyPage(&client);
-                    REQUEST = 0;
-                    client.stop();
-                    Serial.println("\nSUBMIT : Client Disconnected.");
-                    return 1;
-                }
-                if (currentLine.startsWith("POST"))
-                {
-                    Serial.println("\nPOST REQUEST");
-                    REQUEST = 1;
                 }
             }
             else
@@ -184,7 +237,7 @@ int captive_portale_home(unsigned long timeout_ms)
         Serial.println("Client Disconnected.");
     }
     currentLine = "";
-    return -1;
+    return 0;
 }
 
 connection_status_t connect_to_ssid(int nb_try)
@@ -214,7 +267,7 @@ connection_status_t connect_to_ssid(int nb_try)
     }
 }
 
-connection_status_t send_request(String id_tag, int id_lecteur_rfid)
+connection_status_t send_request(String id_tag)
 {
     if (WiFi.status() == WL_CONNECTED)
     {
@@ -222,7 +275,7 @@ connection_status_t send_request(String id_tag, int id_lecteur_rfid)
         String Request_1 = "http://admin.sukito.fr/webservice/postjson/idtag/";
         String Request_2 = Request_1 + id_tag;
         String Request_3 = Request_2 + "/idreader/";
-        String Request_4 = Request_3 + id_lecteur_rfid;
+        String Request_4 = Request_3 + module_id;
         http.begin(Request_4);     //Specify the URL
         int httpCode = http.GET(); //Make the request
 
