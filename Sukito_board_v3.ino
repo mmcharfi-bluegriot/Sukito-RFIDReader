@@ -90,7 +90,6 @@ bool AWS_is_connect = false;
 int rssi = 0;
 int freq = 0;
 
-
 //RFID module object
 RFID nano;
 
@@ -380,7 +379,6 @@ void loop()
   switch (state)
   {
   case NFC_READ_STOP:
-
     digitalWrite(led_green_status.Pin, HIGH);
 
     if (start_button.pressed)
@@ -400,9 +398,11 @@ void loop()
       nano.startReading(); //Begin scanning for tags
       delay(500);
     }
+
     break;
 
   case NFC_READ_RUNNING:
+
     ttl_current_time = millis();
     if (nano.check() == true) //Check to see if any new data has come in from module
     {
@@ -417,35 +417,12 @@ void loop()
       {
         Led_blink(&led_green_status, ttl_epc);
         Serial.println(F("Scanning"));
-
-        if (nb_epc_read > 0)
+        if (AWS_is_connect)
         {
-          Serial.print("NB Epc = ");
-          Serial.println(nb_epc_read);
-          total_epc += nb_epc_read;
-          for (int i = 0; i < nb_epc_read; i++)
+          if (AWS_publish_RFID(true, total_epc, rssi, freq))
           {
-            Serial.print("Send EPC:");
-            err_code = send_request(list_EPC[i]);
-            if (err_code == HTTP_POST_SUCCESS)
-            {
-              Serial.println("Request send success");
-              list_EPC[i] = "";
-            }
-            else
-            {
-              Serial.println("error sending request");
-              state = WIFI_STA_ERROR;
-            }
-            if (AWS_is_connect)
-            {
-              if(AWS_publish_RFID(true, nb_epc_read, rssi, freq))
-              {
-                nb_epc_read=0;
-              }
-            }
+            total_epc = 0;
           }
-          nb_epc_read = 0;
         }
       }
       else if (responseType == RESPONSE_IS_TAGFOUND)
@@ -481,64 +458,20 @@ void loop()
         }
         Serial.print(F("]"));
         Serial.println("\n");
-
-        Serial.print("Last epc read: ");
-        Serial.println(last_epc_read);
-
         Serial.print("Actual epc read: ");
         Serial.println(actual_epc_read);
 
-        for (int i = 0; i < NUMBER_EPC; i++)
+        err_code = send_request(actual_epc_read);
+        if (err_code == HTTP_POST_SUCCESS)
         {
-          if (actual_epc_read.equals(list_EPC[i]))
-          {
-            epc_present = true;
-            break;
-          }
-          else
-          {
-            epc_present = false;
-          }
-        }
-
-        if (epc_present || actual_epc_read.equals(last_epc_read))
-        {
-          Serial.println("Read the same EPC");
-          if (ttl_current_time - ttl_previous_time >= ttl_epc)
-          {
-            Serial.println("But the ttl is past, register the epc to send it later");
-            ttl_previous_time = ttl_current_time;
-            last_epc_read = actual_epc_read;
-            list_EPC[nb_epc_read] = actual_epc_read;
-            if (nb_epc_read == NUMBER_EPC - 1)
-            {
-              nb_epc_read = 0;
-            }
-            else
-            {
-              nb_epc_read++;
-            }
-            Serial.print("nb_epc_read: ");
-            Serial.println(nb_epc_read);
-          }
+          Serial.println("Request send success");
         }
         else
         {
-          Serial.println("Read a different EPC, register to send it later");
-          ttl_previous_time = ttl_current_time;
-          last_epc_read = actual_epc_read;
-          list_EPC[nb_epc_read] = actual_epc_read;
-          if (nb_epc_read == NUMBER_EPC - 1)
-          {
-            nb_epc_read = 0;
-          }
-          else
-          {
-            nb_epc_read++;
-          }
-          Serial.print("nb_epc_read: ");
-          Serial.println(nb_epc_read);
+          Serial.println("error sending request");
+          state = WIFI_STA_ERROR;
         }
+        total_epc++;
         actual_epc_read = "";
       }
       else if (responseType == ERROR_CORRUPT_RESPONSE)
@@ -550,37 +483,38 @@ void loop()
         Serial.println("Unknown error");
         state = NFC_ERROR;
       }
+      break;
+    case WIFI_STA_ERROR:
+      digitalWrite(led_green_wifi.Pin, LOW);
+      Led_blink(&led_red_wifi, 1000);
+      if (connect_to_ssid(10) == STA_CONNECTED)
+      { // connexion au réseau entré par l'utilisateur
+        Serial.println("Connecté au réseaux");
+        digitalWrite(led_red_wifi.Pin, HIGH);
+        AWS_is_connect = AWS_connection(2);
+        digitalWrite(led_red_wifi.Pin, LOW);
+        digitalWrite(led_green_wifi.Pin, HIGH);
+        state = NFC_READ_RUNNING;
+      }
+      else
+      {
+        Serial.println("Non connecté");
+      }
+      break;
+    case NFC_ERROR:
+      digitalWrite(led_green_status.Pin, LOW);
+      Led_blink(&led_red_status, 1000);
+      break;
+    default:
+      break;
     }
-    break;
-  case WIFI_STA_ERROR:
-    digitalWrite(led_green_wifi.Pin, LOW);
-    Led_blink(&led_red_wifi, 1000);
-    if (connect_to_ssid(10) == STA_CONNECTED)
-    { // connexion au réseau entré par l'utilisateur
-      Serial.println("Connecté au réseaux");
-      digitalWrite(led_red_wifi.Pin, HIGH);
-      AWS_is_connect = AWS_connection(2);
-      digitalWrite(led_red_wifi.Pin, LOW);
-      digitalWrite(led_green_wifi.Pin, HIGH);
-      state = NFC_READ_RUNNING;
-    }
-    else
+
+    if (start_button.pressed)
     {
-      Serial.println("Non connecté");
+      Serial.println("Start button pressed GO STOP STATE");
+      start_button.pressed = false;
+      state = NFC_READ_STOP;
+      nano.stopReading();
     }
-    break;
-  case NFC_ERROR:
-    digitalWrite(led_green_status.Pin, LOW);
-    Led_blink(&led_red_status, 1000);
-    break;
-  default:
-    break;
-  }
-  if (start_button.pressed)
-  {
-    Serial.println("Start button pressed GO STOP STATE");
-    start_button.pressed = false;
-    state = NFC_READ_STOP;
-    nano.stopReading();
   }
 }
