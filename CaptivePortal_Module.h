@@ -33,6 +33,7 @@ typedef enum {
 String get_ssid_user();
 String get_pwd_user();
 String get_id();
+void set_id(String data);
 void set_ssid_user(String data);
 void set_pwd_user(String data);
 
@@ -41,7 +42,7 @@ connection_status_t init_AP_com();
 void end_AP_com();
 void parse_submit();
 int handle_request();
-int captive_portale_home(unsigned long timeout_ms, bool configured);
+int captive_portale_home(bool configured);
 
 void display_login(WiFiClient client);
 

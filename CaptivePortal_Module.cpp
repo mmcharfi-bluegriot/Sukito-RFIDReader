@@ -36,6 +36,10 @@ String get_id()
     return module_id;
 }
 
+void set_id(String data)
+{
+    module_id = data;
+}
 
 void set_ssid_user(String data)
 {
@@ -180,13 +184,11 @@ int handle_request(WiFiClient client)
     return REQUEST;
 }
 
-int captive_portale_home(unsigned long timeout_ms, bool configured)
+int captive_portale_home(bool configured)
 {
     dnsServer.processNextRequest();
     WiFiClient client = server.available(); // listen for incoming clients
 
-    unsigned long start_time = millis();
-    //Serial.println("captive_portale_home");
     if (client)
     {                                 // if you get a client,
         Serial.println("New Client"); // print a message out the serial port
@@ -226,12 +228,6 @@ int captive_portale_home(unsigned long timeout_ms, bool configured)
             {
                 Serial.println("client not available");
             }
-
-            if (((millis() - start_time) > timeout_ms) && (timeout_ms != 0))
-            {
-                Serial.println("Timeout");
-                return -1;
-            }
         }
         client.stop();
         Serial.println("Client Disconnected.");
@@ -269,6 +265,7 @@ connection_status_t connect_to_ssid(int nb_try)
 
 connection_status_t send_request(String id_tag)
 {
+    int cpt_try = 0;
     if (WiFi.status() == WL_CONNECTED)
     {
         HTTPClient http;
@@ -276,16 +273,25 @@ connection_status_t send_request(String id_tag)
         String Request_2 = Request_1 + id_tag;
         String Request_3 = Request_2 + "/idreader/";
         String Request_4 = Request_3 + module_id;
-        http.begin(Request_4);     //Specify the URL
-        int httpCode = http.GET(); //Make the request
+        http.begin(Request_4); //Specify the URL
+        int httpCode = 0;      //Make the request
 
-        if (httpCode == 200)
-        { //Check for the returning code
-            return HTTP_POST_SUCCESS;
-        }
-        else
+        while (1)
         {
-            return HTTP_POST_FAILED;
+            httpCode = http.GET();
+            if (httpCode == 200)
+            { //Check for the returning code
+                return HTTP_POST_SUCCESS;
+            }
+            else
+            {
+                cpt_try ++;
+            }
+
+            if(cpt_try > 4)
+            {
+               return HTTP_POST_FAILED;
+            }
         }
         http.end(); //Free the resource
     }

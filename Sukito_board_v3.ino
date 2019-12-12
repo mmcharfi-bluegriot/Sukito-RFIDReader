@@ -8,7 +8,6 @@
 * define declaration
 */
 
-
 //GLOBAL DEFAULT CONSTANT
 
 #define RFID_BAURDRATE 115200
@@ -17,7 +16,7 @@
 #define DEBOUNCING_TIME 200
 #define DEFAULT_POWER 2700
 #define LED_BLINK_TIMING 500
-#define NUMBER_EPC 10
+#define NUMBER_EPC 5
 
 #define ADDR_CONFIG 0
 #define ADDR_ID 10
@@ -40,8 +39,6 @@
 enum device_state
 {
   INIT,
-  WIFI_AP_CONNECTED,
-  WIFI_AP_ERROR,
   WIFI_STA_CONNECTED,
   WIFI_STA_ERROR,
   NFC_READ_STOP,
@@ -88,6 +85,11 @@ device_state state = INIT;
 
 //Wifi parameter is set
 bool WIFI_is_set = false;
+bool AWS_is_connect = false;
+
+int rssi = 0;
+int freq = 0;
+
 
 //RFID module object
 RFID nano;
@@ -175,23 +177,21 @@ void GPIO_init()
   digitalWrite(led_green_status.Pin, LOW);
 }
 
-void Led_blink(Led *led_user)
+void Led_blink(Led *led_user, unsigned long blink_timing)
 {
   static unsigned long previousMillis = 0;
   unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis > LED_BLINK_TIMING)
+  if (currentMillis - previousMillis > blink_timing)
   {
     // save the last time you blinked the LED
     previousMillis = currentMillis;
     // if the LED is off turn it on and vice-versa:
     if (led_user->State == LOW)
     {
-      Serial.println("Blink HIGH");
       led_user->State = HIGH;
     }
     else
     {
-      Serial.println("Blink LOW");
       led_user->State = LOW;
     }
     // set the LED with the ledState of the variable:
@@ -203,14 +203,16 @@ void setup()
 {
   String memory_data;
   bool configured = false;
+  int power_rfid = DEFAULT_POWER;
 
   Serial.begin(115200);
-  while (!Serial);
+  while (!Serial)
+    ;
 
   GPIO_init();
   Serial.println("Gpio Init");
 
-   /**********
+  /**********
    * 
    * Read memory
    * 
@@ -221,10 +223,14 @@ void setup()
   memory_read_string(&memory_data, ADDR_CONFIG);
   Serial.print("Config data: ");
   Serial.println(memory_data);
-  if(memory_data.equals("1"))
+  if (memory_data.equals("1"))
   {
     Serial.println("SUKITO module was configured");
-    
+
+    memory_read_string(&memory_data, ADDR_ID);
+    Serial.println(memory_data);
+    set_id(memory_data);
+
     memory_read_string(&memory_data, ADDR_SSID);
     Serial.println(memory_data);
     set_ssid_user(memory_data);
@@ -233,9 +239,8 @@ void setup()
     Serial.println(memory_data);
     set_pwd_user(memory_data);
     configured = true;
-    
-  } 
-  else 
+  }
+  else
   {
     Serial.println("SUKITO module was NOT configured");
     configured = false;
@@ -252,10 +257,12 @@ void setup()
   Serial.println("Mode AP set");
   digitalWrite(led_green_wifi.Pin, HIGH);
 
+  unsigned long start_ap_time = millis();
+
   while (1)
   {
     int captive_state = 0;
-    captive_state = captive_portale_home(240000UL, configured);
+    captive_state = captive_portale_home(configured);
     if (captive_state == 1)
     {
       end_AP_com(); // Fermé le mode Access Point
@@ -267,15 +274,17 @@ void setup()
       end_AP_com(); // Fermé le mode Access Point
       break;
     }
-    else if (captive_state == -1)
+    else if ((millis() - start_ap_time) > 60000UL)
     {
       end_AP_com(); // Fermé le mode Access Point
+      Serial.println("Timeout");
       break;
     }
+    Led_blink(&led_green_wifi, 1000);
     //Serial.println(captive_state);
   }
 
- /**********
+  /**********
    * 
    * Save Configuration 
    * 
@@ -293,7 +302,7 @@ void setup()
     memory_read_string(&memory_data, ADDR_ID);
     Serial.println(memory_data);
     memory_send_save();
-    
+
     memory_save_string(get_ssid_user(), ADDR_SSID);
     memory_read_string(&memory_data, ADDR_SSID);
     Serial.println(memory_data);
@@ -307,7 +316,39 @@ void setup()
 
   digitalWrite(led_green_wifi.Pin, LOW);
 
-   /**********
+  /**********
+   * 
+   * init rfid module
+   * 
+   * **********/
+  if (RFID_init(RFID_BAURDRATE) == false)
+  {
+    Serial.println("Module failed to respond. Please check wiring.");
+    digitalWrite(led_red_status.Pin, HIGH);
+    AWS_publish_RFID(false, 0, 0, 0);
+    while (1)
+      ; //Freeze!
+  }
+  Serial.println("Module is initialized.");
+  digitalWrite(led_green_status.Pin, HIGH);
+
+  nano.setRegion(REGION_EUROPE);
+  nano.setReadPower(DEFAULT_POWER);
+  //Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
+  delay(1500);
+
+  digitalWrite(led_green_status.Pin, HIGH);
+  power_rfid = analogRead(POWER_COMMAND_PIN);
+  power_rfid = map(power_rfid, 0, 3120, 0, 2700);
+
+  Serial.print("Power = ");
+  Serial.println(power_rfid);
+
+  nano.setReadPower(power_rfid);
+  nano.startReading(); //Begin scanning for tags
+  state = NFC_READ_RUNNING;
+
+  /**********
    * 
    * Connection wifi
    * 
@@ -316,45 +357,16 @@ void setup()
   if (connect_to_ssid(10) == STA_CONNECTED)
   { // connexion au réseau entré par l'utilisateur
     Serial.println("Connecté au réseaux");
+    AWS_is_connect = AWS_connection(4);
     digitalWrite(led_green_wifi.Pin, HIGH);
   }
   else
   {
     Serial.println("Non connecté");
     digitalWrite(led_red_wifi.Pin, HIGH);
+    state = WIFI_STA_ERROR;
   }
-
-
-    AWS_connection();
-
-  /**********
-   * 
-   * init rfid module
-   * 
-   * **********/
-
-  if (RFID_init(RFID_BAURDRATE) == false)
-  {
-    Serial.println("Module failed to respond. Please check wiring.");
-    digitalWrite(led_red_status.Pin, HIGH);
-    AWS_publish_RFID_state(false);
-    while (1)
-      ; //Freeze!
-  }
-  Serial.println("Module is initialized.");
-  digitalWrite(led_green_status.Pin, HIGH);
-
-  AWS_publish_RFID_state(true);
-
-  nano.setRegion(REGION_EUROPE);
-  nano.setReadPower(DEFAULT_POWER);
-  //Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
-  delay(1500);
-
-  digitalWrite(led_green_status.Pin, HIGH);
-  state = NFC_READ_STOP;
 }
-
 
 void loop()
 {
@@ -362,11 +374,15 @@ void loop()
   byte tagEPCBytes;
   unsigned long ttl_current_time;
   int power_rfid = DEFAULT_POWER;
+  bool epc_present = false;
+  int total_epc = 0;
 
-  /*NFC STATE STOP*/
-  if (state == NFC_READ_STOP)
+  switch (state)
   {
+  case NFC_READ_STOP:
+
     digitalWrite(led_green_status.Pin, HIGH);
+
     if (start_button.pressed)
     {
       delay(500);
@@ -384,31 +400,30 @@ void loop()
       nano.startReading(); //Begin scanning for tags
       delay(500);
     }
-  }
-  /*NFC STATE RUNNING*/
-  else if (state == NFC_READ_RUNNING)
-  {
+
+    break;
+
+  case NFC_READ_RUNNING:
     ttl_current_time = millis();
     if (nano.check() == true) //Check to see if any new data has come in from module
     {
-
       responseType = nano.parseResponse(); //Break response into tag ID, RSSI, frequency, and timestamp
       ttl_epc = analogRead(TTL_COMMAND_PIN);
-      ttl_epc = map(ttl_epc, 0, 3130, 1000, 5000);
+      ttl_epc = map(ttl_epc, 0, 3130, 2000, 10000);
 
       Serial.print("ttl_epc = ");
       Serial.println(ttl_epc);
 
       if (responseType == RESPONSE_IS_KEEPALIVE)
       {
-        Led_blink(&led_green_status);
+        Led_blink(&led_green_status, ttl_epc);
         Serial.println(F("Scanning"));
 
         if (nb_epc_read > 0)
         {
           Serial.print("NB Epc = ");
           Serial.println(nb_epc_read);
-
+          total_epc += nb_epc_read;
           for (int i = 0; i < nb_epc_read; i++)
           {
             Serial.print("Send EPC:");
@@ -421,7 +436,14 @@ void loop()
             else
             {
               Serial.println("error sending request");
-              //i--;
+              state = WIFI_STA_ERROR;
+            }
+            if (AWS_is_connect)
+            {
+              if(AWS_publish_RFID(true, nb_epc_read, rssi, freq))
+              {
+                nb_epc_read=0;
+              }
             }
           }
           nb_epc_read = 0;
@@ -430,7 +452,23 @@ void loop()
       else if (responseType == RESPONSE_IS_TAGFOUND)
       {
         //If we have a full record we can pull out the fun bits
+
+        rssi = nano.getTagRSSI(); //Get the RSSI for this tag read
+
+        freq = nano.getTagFreq(); //Get the frequency this tag was detected at
+
+        long timeStamp = nano.getTagTimestamp(); //Get the time this was read, (ms) since last keep-alive message
+
         tagEPCBytes = nano.getTagEPCBytes(); //Get the number of bytes of EPC from response
+
+        Serial.print(F("rssi: "));
+        Serial.println(rssi);
+
+        Serial.print(F("freq: "));
+        Serial.println(freq);
+
+        Serial.print(F("time: "));
+        Serial.println(timeStamp);
 
         //Print EPC bytes, this is a subsection of bytes from the response/msg array
         Serial.print(F("Read epc["));
@@ -443,7 +481,7 @@ void loop()
           actual_epc_read = String(actual_epc_read + String(nano.msg[31 + x], HEX));
         }
         Serial.print(F("]"));
-        Serial.println();
+        Serial.println("\n");
 
         Serial.print("Last epc read: ");
         Serial.println(last_epc_read);
@@ -451,7 +489,20 @@ void loop()
         Serial.print("Actual epc read: ");
         Serial.println(actual_epc_read);
 
-        if (actual_epc_read.equals(last_epc_read))
+        for (int i = 0; i < NUMBER_EPC; i++)
+        {
+          if (actual_epc_read.equals(list_EPC[i]))
+          {
+            epc_present = true;
+            break;
+          }
+          else
+          {
+            epc_present = false;
+          }
+        }
+
+        if (epc_present || actual_epc_read.equals(last_epc_read))
         {
           Serial.println("Read the same EPC");
           if (ttl_current_time - ttl_previous_time >= ttl_epc)
@@ -497,20 +548,40 @@ void loop()
       }
       else
       {
-        //Unknown response
         Serial.println("Unknown error");
+        state = NFC_ERROR;
       }
     }
-
-
-
-
-    if (start_button.pressed)
-    {
-      Serial.println("Start button pressed GO STOP STATE");
-      start_button.pressed = false;
-      state = NFC_READ_STOP;
-      nano.stopReading();
+    break;
+  case WIFI_STA_ERROR:
+    digitalWrite(led_green_wifi.Pin, LOW);
+    Led_blink(&led_red_wifi, 1000);
+    if (connect_to_ssid(10) == STA_CONNECTED)
+    { // connexion au réseau entré par l'utilisateur
+      Serial.println("Connecté au réseaux");
+      digitalWrite(led_red_wifi.Pin, HIGH);
+      AWS_is_connect = AWS_connection(2);
+      digitalWrite(led_red_wifi.Pin, LOW);
+      digitalWrite(led_green_wifi.Pin, HIGH);
+      state = NFC_READ_RUNNING;
     }
+    else
+    {
+      Serial.println("Non connecté");
+    }
+    break;
+  case NFC_ERROR:
+    digitalWrite(led_green_status.Pin, LOW);
+    Led_blink(&led_red_status, 1000);
+    break;
+  default:
+    break;
+  }
+  if (start_button.pressed)
+  {
+    Serial.println("Start button pressed GO STOP STATE");
+    start_button.pressed = false;
+    state = NFC_READ_STOP;
+    nano.stopReading();
   }
 }
