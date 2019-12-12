@@ -357,7 +357,7 @@ void setup()
   if (connect_to_ssid(10) == STA_CONNECTED)
   { // connexion au réseau entré par l'utilisateur
     Serial.println("Connecté au réseaux");
-    AWS_is_connect = AWS_connection(4);
+    AWS_is_connect = AWS_connection(2);
     digitalWrite(led_green_wifi.Pin, HIGH);
   }
   else
@@ -400,7 +400,6 @@ void loop()
       nano.startReading(); //Begin scanning for tags
       delay(500);
     }
-
     break;
 
   case NFC_READ_RUNNING:
