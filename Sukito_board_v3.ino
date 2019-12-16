@@ -9,7 +9,7 @@
 */
 
 //GLOBAL DEFAULT CONSTANT
-
+#define CAPTIVE_PORTAL_TIME 120000UL
 #define RFID_BAURDRATE 115200
 #define EPC_SIZE 255
 #define DEFAULT_TTL_EPC 5
@@ -274,7 +274,7 @@ void setup()
       end_AP_com(); // Fermé le mode Access Point
       break;
     }
-    else if ((millis() - start_ap_time) > 60000UL)
+    else if ((millis() - start_ap_time) > CAPTIVE_PORTAL_TIME)
     {
       end_AP_com(); // Fermé le mode Access Point
       Serial.println("Timeout");
@@ -478,6 +478,7 @@ void loop()
             Serial.print(F("0")); //Pretty print
           Serial.print(nano.msg[31 + x], HEX);
           Serial.print(F(" "));
+          if (nano.msg[31 + x] < 0x10) actual_epc_read = String(actual_epc_read + "0");
           actual_epc_read = String(actual_epc_read + String(nano.msg[31 + x], HEX));
         }
         Serial.print(F("]"));
