@@ -3,5 +3,5 @@
     "configuration": "PSRAM=disabled,PartitionScheme=default,CPUFreq=240,FlashMode=qio,FlashFreq=80,FlashSize=4M,UploadSpeed=921600,DebugLevel=none",
     "programmer": "AVRISP mkII",
     "sketch": "Sukito_board_v3.ino",
-    "port": "COM86"
+    "port": "COM82"
 }

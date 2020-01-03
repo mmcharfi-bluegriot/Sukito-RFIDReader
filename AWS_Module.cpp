@@ -4,8 +4,8 @@
 AWS_IOT hornbill;
 
 char HOST_ADDRESS[] = "a1ot600sii5oea-ats.iot.eu-west-3.amazonaws.com";
-char CLIENT_ID[] = "4";
-char TOPIC_NAME[] = "$aws/things/SUKITO_1/shadow/update";
+char CLIENT_ID[] = "0";
+char TOPIC_NAME[] = "$aws/things/SUKITO_0/shadow/update";
 
 int tick = 0, msgCount = 0, msgReceived = 0;
 char payload[512];
@@ -14,6 +14,7 @@ char rcvdPayload[512];
 bool AWS_connection(int retry)
 {
     int cpt_retry = 0;
+    get_id().toCharArray(CLIENT_ID, 3);
     while (1)
     {
         if (hornbill.connect(HOST_ADDRESS, CLIENT_ID) == 0)
@@ -35,20 +36,29 @@ bool AWS_connection(int retry)
 
 bool AWS_publish_RFID(bool state, int nb_epc, int rssi, int freq)
 {
+    int cpt_try = 0;
     int id = get_id().toInt();
     sprintf(TOPIC_NAME, "$aws/things/SUKITO_%d/shadow/update", id);
     sprintf(payload, "{\"RFID\" : %d,\"nb_epc\" : %d,\"rssi\" : %d,\"freq\" : %d}", state, nb_epc, rssi, freq);
-    if (hornbill.publish(TOPIC_NAME, payload) == 0)
+
+    while(cpt_try < 3)
     {
-        Serial.print("Publish Message:");
-        Serial.println(payload);
-        Serial.print("id:");
-        Serial.println(id);
-        return true;
+        if (hornbill.publish(TOPIC_NAME, payload) == 0)
+        {
+            Serial.print("Publish Message:");
+            Serial.println(payload);
+            Serial.print("id:");
+            Serial.println(id);
+            return true;
+        }
+        else
+        {
+            cpt_try ++;
+            Serial.print("Publish failed retry:  ");
+            Serial.println(cpt_try);
+            delay(500);
+        }
     }
-    else
-    {
-        Serial.println("Publish failed");
-        return false;
-    }
+
+    return false;
 }

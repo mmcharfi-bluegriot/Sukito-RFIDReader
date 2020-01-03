@@ -3,6 +3,11 @@
 
 #include <WiFi.h>
 
+
+void sendHTMLLoginPage_first_configuration(WiFiClient * c);
+void sendHTMLLoginPage_new_configuration(WiFiClient * c, String ssid, String id);
+void sendHTMLReplyPage(WiFiClient * c);
+
 const char html_login_page_header[] = {"\
 				<!DOCTYPE html>\
 					<html>\
@@ -20,16 +25,18 @@ const char html_login_page_form[] = {"\
 								ID:<input type='text' name='ID' placeholder='ID du module'><br>\
 								SSID:<input type='text' name='SSID' placeholder='Nom du réseau Wifi'><br>\
 								Mot de passe:<input type='text' name='PASSWORD' placeholder='Mot de passe'><br><br>\
-								<input type='submit' name='SUBMIT' value='Continue'>\
 								<input type='submit' name='SUBMIT' value='Save Configuration'>\
 							</form><br>"};
 
-const char html_login_page_form2[] = {"\
+const char html_new_login_page_form_1[] = {"\
 							</div>\
 							<form action='/login' method='POST' style=\"text-align:center;\">Entrez le SSID et le mot de passe<br><br>\
-								ID:<input type='text' name='ID' placeholder='ID du module'><br>\
-								SSID:<input type='text' name='SSID' placeholder='Nom du réseau Wifi'><br>\
+								ID:<input type='text' name='ID' placeholder='"};
+const char html_new_login_page_form_2[] = {"'><br>\
+								SSID:<input type='text' name='SSID' placeholder='"};
+const char html_new_login_page_form_3[] = {"'><br>\
 								Mot de passe:<input type='text' name='PASSWORD' placeholder='Mot de passe'><br><br>\
+								<input type='submit' name='SUBMIT' value='Continue'>\
 								<input type='submit' name='SUBMIT' value='Save Configuration'>\
 							</form><br>"};
 
@@ -160,9 +167,5 @@ const char html_login_page_blgrt2[] = {"\
 						</body>\
 				</html>"};
 
-
-void sendHTMLLoginPage(WiFiClient * c);
-void sendHTMLLoginPage2(WiFiClient * c);
-void sendHTMLReplyPage(WiFiClient * c);
 
 #endif //_HTML_PAGE_H_

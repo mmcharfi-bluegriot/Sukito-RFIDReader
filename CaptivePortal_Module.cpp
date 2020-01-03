@@ -131,6 +131,7 @@ int handle_request(WiFiClient client)
     {
         currentLine = "";
         c = 0;
+        //traitement caractères
         while (c != '\n')
         {
             c = client.read();
@@ -160,22 +161,29 @@ int handle_request(WiFiClient client)
         {
             Serial.println("POST REQUEST");
             REQUEST = 2;
-        } //END of request GET
-        else if (currentLine.length() == 0 && REQUEST == 1)
+        }
+        
+        if (currentLine.length() == 0 && REQUEST == 1) //END of request GET
         {
 
-            Serial.println("Lign null");
+            Serial.println("GET REQUEST :Ligne null");
             return 1;
-            break;
-        } //END of request POST
-        if (currentLine.endsWith("SUBMIT=Save+Configuration") && REQUEST == 2)
+        }
+        if (currentLine.length() == 0 && REQUEST == 2) //END of request POST but empty
         {
-            Serial.println("\nSUBMIT: New configuration");
+
+            Serial.println("POST REQUEST :Ligne null");
+            return 1;
+        }
+
+        if (currentLine.endsWith("SUBMIT=Save+Configuration") && REQUEST == 2) //END of request POST
+        {
+            Serial.println("\nPOST SUBMIT: New configuration");
             return 2;
         }
         if (currentLine.endsWith("SUBMIT=Continue") && REQUEST == 2)
         {
-            Serial.println("\nSUBMIT: Continue");
+            Serial.println("\nPOST SUBMIT: Continue");
             return 3;
         }
     }
@@ -204,11 +212,11 @@ int captive_portale_home(bool configured)
                 case 1:
                     if (configured)
                     {
-                        sendHTMLLoginPage(&client);
+                        sendHTMLLoginPage_new_configuration(&client, ssid_user, module_id);
                     }
                     else
                     {
-                        sendHTMLLoginPage2(&client);
+                        sendHTMLLoginPage_first_configuration(&client);
                     }
                     client.stop();
                     break;

@@ -8,6 +8,19 @@
         "xutility": "cpp",
         "string": "cpp",
         "thread": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "system_error": "cpp",
+        "typeinfo": "cpp",
+        "array": "cpp",
+        "chrono": "cpp",
+        "functional": "cpp",
+        "memory": "cpp",
+        "ratio": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "xmemory0": "cpp",
+        "xtr1common": "cpp",
+        "string_view": "cpp"
     }
 }
