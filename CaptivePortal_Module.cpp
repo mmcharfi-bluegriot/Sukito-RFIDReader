@@ -161,7 +161,7 @@ int handle_request(WiFiClient client)
         {
             Serial.println("POST REQUEST");
             REQUEST = 2;
-        }
+        } 
         
         if (currentLine.length() == 0 && REQUEST == 1) //END of request GET
         {
@@ -175,7 +175,6 @@ int handle_request(WiFiClient client)
             Serial.println("POST REQUEST :Ligne null");
             return 1;
         }
-
         if (currentLine.endsWith("SUBMIT=Save+Configuration") && REQUEST == 2) //END of request POST
         {
             Serial.println("\nPOST SUBMIT: New configuration");
@@ -186,10 +185,13 @@ int handle_request(WiFiClient client)
             Serial.println("\nPOST SUBMIT: Continue");
             return 3;
         }
+        if (currentLine.length() == 0 ) //END of request GET
+        {
+
+            Serial.println("Ligne null");
+            return 1;
+        }
     }
-    Serial.print("REQUEST: ");
-    Serial.println(REQUEST);
-    return REQUEST;
 }
 
 int captive_portale_home(bool configured)
